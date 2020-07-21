@@ -116,30 +116,6 @@ RDD Interface: all spark RDD types are made by subclassing these interfaces (can
 Avoiding Lopsided Cached RDD's
 
 ### ============================================
-#### Aside; Shuffles
-link
-
-What is a Shuffle: Shuffles are one of the most memory/network intensive parts of most Spark jobs
-
-Consider an "embarrassingly parallel" process
-- reading in a number of text files (as partitions), apply a map, and write out to disk
-
-Bring a shuffle into the picture
-- same operation, but introduce a reduceByKey() after map, effectively implementing a result that contains a list of tuples where the first element is a word and the second element is the number of occurances in the text
-- in order to count all of the given words which may appear across dataset (with a bunch of partitions), each parition must aggregate all the counts of words within that partition, but then it must also sum across each **other** partition
-- Process of moving data from partition to partition in order to aggregate, join, match up, in some way is known as **shuffling**
-- aggregation/reduction that takes place before data is moved across partitions known as **map-side shuffle**
-
-Some shuffle inducing operations:
-- groupBy/aggregateBy/ReduceByKey
-- cogroup
-- any join transformation
-- distinct
-
-Shuffle Manager:
-- 
-
-### ============================================
 #### Resource Managers
 
 Ways to run Spark:
@@ -349,6 +325,43 @@ Scheduling Process:
     - map, filter, **join with inputs co-partitioned** (similarly hash partitioned), union
 - Wide **Requires Shuffle**:
     - groupByKey, join with inputs **not** co-partitioned
+    - recall, pipelines can optimizae a series of narrow transformations
+
+- See 3:35, Stage Boundaries
+    - Note how stages are organized in context of multiple parallel sequental maps/filters/group by's ending in a join
+
+- RDD.toDebugString
+    - display the lineage of an RDD
+
+
+### ============================================
+#### Shuffles
+
+#### Aside; Shuffles
+link
+
+What is a Shuffle: Shuffles are one of the most memory/network intensive parts of most Spark jobs
+
+Consider an "embarrassingly parallel" process
+- reading in a number of text files (as partitions), apply a map, and write out to disk
+
+Bring a shuffle into the picture
+- same operation, but introduce a reduceByKey() after map, effectively implementing a result that contains a list of tuples where the first element is a word and the second element is the number of occurances in the text
+- in order to count all of the given words which may appear across dataset (with a bunch of partitions), each parition must aggregate all the counts of words within that partition, but then it must also sum across each **other** partition
+- Process of moving data from partition to partition in order to aggregate, join, match up, in some way is known as **shuffling**
+- aggregation/reduction that takes place before data is moved across partitions known as **map-side shuffle**
+
+Some shuffle inducing operations:
+- groupBy/aggregateBy/ReduceByKey
+- cogroup
+- any join transformation
+- distinct
+
+Shuffle Manager:
+- 
+#### 
+
+
 
 
 
