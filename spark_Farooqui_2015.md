@@ -1,6 +1,6 @@
 
 ### These notes are based on the following lectures: Spark Core and Internals
-- 2015 by Sameer Farooqui, link
+- [2015 by Sameer Farooqui](https://www.youtube.com/watch?v=7ooZ4S7Ay6Y)
 - by Daniel Tomes
 - deeper understanding
 
@@ -302,7 +302,7 @@ When you call an action, collect(), that action triggers a **job**
 - each task is operating on one partition:
     - read a partition from a parent RDD, processing, emitting an new child partition 
 
-Scheduling Process:
+**Scheduling Process:**
 - **RDD Object:**
     - transformations build operator DAG
 - **DAG Scheduler:**
@@ -317,58 +317,76 @@ Scheduling Process:
     - contains task threads and block manager
     - execute tasks, and store & servce blocks
 
-**Lineage**
+
+### ============================================
+#### Concepts around Shuffles  
+
+**What is a Shuffle?** 
+- Shuffles are one of the most memory/network intensive parts of most Spark jobs
+- Consider an "embarrassingly parallel" process
+    - reading in a number of text files (as partitions), apply a map, and write out to disk
+
+**How do you know if a shuffle will be called on a transformation?**
+- repartition, join , cogroup, and any of the "By" or "ByKey" (combineByKey) transformations
+- declaring a numPartitions parameter
+- if a transformation constructs a shuffledRDD
+- note that coalesce may be more efficient than repartion for decreasing number of partitions 
+
+**Preserves Partitioning**
+- in case where you store key value pairs inside RDD, a lambda map on the values should have Preserves Partitioning option set to true
+
+**Lineage:**
 - recall that an RDD graph has a lineage: parent rdd --> transformation --> child rdd
 - dependencies can be either **wide** or **narrow**
-- **Wide**, where multiple child partitions may depend on it. **Narrow** where each partition of the parent RDD is used by at most one partition iof the child RDD 
+- **Wide**, where multiple child partitions may depend on it. 
+- **Narrow** where each partition of the parent RDD is used by at most one partition of the child RDD 
 - Narrow:
     - map, filter, **join with inputs co-partitioned** (similarly hash partitioned), union
 - Wide **Requires Shuffle**:
     - groupByKey, join with inputs **not** co-partitioned
     - recall, pipelines can optimizae a series of narrow transformations
 
-- See 3:35, Stage Boundaries
-    - Note how stages are organized in context of multiple parallel sequental maps/filters/group by's ending in a join
-
+**Stage Boundaries: Configuring possible bottlenecks**
+- Note how stages are organized in context of multiple parallel sequental maps/filters/group by's ending in a join
 - RDD.toDebugString
     - display the lineage of an RDD
 
+### ============================================
+#### Broadcast variables and Accumulators 
+
+**Avoid Shuffles: Using Broadcast Variables:**
+- by default, spark driver sends lambda function and necessary variables to executors with each scheduled tasks 
+- would be better to send data once to executor 
+- **Broadcast Variable:** 
+    - Send a large read only lookup table to all the nodes. Like distributed cache. 
+    - **Bittorent technique** for broadcast. Interesting/innovative technique
+- **Accumulator:** 
+    - Like counters. Count events during job execution. For example, count number of blank records. 
+    - Only the driver program can read an accumulator's value, not the tasks 
+
 
 ### ============================================
-#### Shuffles
+#### Pyspark (more on this in later post)
 
-#### Aside; Shuffles
-link
+**Pyspark Architecture**
+- driver machine and worker machine: when pyspark shell activated: 
+    - **spark context controller object** appears in Driver machine, Controler for the JVM based Spark Context
+    -  Pyspark uses **Py4j socket** to instantiate a normal Driver JVM in Driver Machine. That's where Spark Context lives 
+    - Driver JVM then starts executor JVM's inside Worker Machine. How this happens exactly depends on cluster manager used (YARN, MESOS, etc.)
+    - Executor JVM's launch a **daemon.py** process, which then starts **N python process ID's, depending on 'num_cores' parameter in Executor JVM**
+    - **Pipe between python processes an Executor JVM's**
+        - High throughput pipe, Py4j was not enough, custom to Spark 
 
-What is a Shuffle: Shuffles are one of the most memory/network intensive parts of most Spark jobs
+- Note that when a **collect** like function is called, pulling data back into python REPL
+    - data moves from python processes into Executors, back into Driver JVM
+    - Then data is written to Local Files, which are finally read by the Spark Context Controller
+        - Py4j socket **not meant** for heavy data movement  
 
-Consider an "embarrassingly parallel" process
-- reading in a number of text files (as partitions), apply a map, and write out to disk
+- Note that in a PythonRDD, data is stored as Pickled objects in an RDD[Array[Byte]]
 
-Bring a shuffle into the picture
-- same operation, but introduce a reduceByKey() after map, effectively implementing a result that contains a list of tuples where the first element is a word and the second element is the number of occurances in the text
-- in order to count all of the given words which may appear across dataset (with a bunch of partitions), each parition must aggregate all the counts of words within that partition, but then it must also sum across each **other** partition
-- Process of moving data from partition to partition in order to aggregate, join, match up, in some way is known as **shuffling**
-- aggregation/reduction that takes place before data is moved across partitions known as **map-side shuffle**
+- Switching Python implementation to **Pypy**, instead of standar CPython
+    - JIT, less memory, CFFI (C Foreign Function Interface) support
+    - can set implementation for Driver and Executors separately 
 
-Some shuffle inducing operations:
-- groupBy/aggregateBy/ReduceByKey
-- cogroup
-- any join transformation
-- distinct
-
-Shuffle Manager:
-- 
-#### 
-
-
-
-
-
-
-
-
-
-
-
-
+- **SPARK.PYTHON.WORKER.MEMORY:**
+    - 
