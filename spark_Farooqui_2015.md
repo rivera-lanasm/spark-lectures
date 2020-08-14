@@ -389,4 +389,46 @@ When you call an action, collect(), that action triggers a **job**
     - can set implementation for Driver and Executors separately 
 
 - **SPARK.PYTHON.WORKER.MEMORY:**
-    - 
+    - set amount of memory to use per python worker process during aggregation. Like when setting JVMmeory strings, if the memroy used during aggregation goes above this amount, it will spill the data into disk.
+
+### ============================================
+#### Next Gen Shuffle 
+
+**100TB Daytona Sort Competition, 2014**
+    - spark sorted same data 3x faster using 1x feewr machines than Hadoop MR
+    - sortbenchmark.org
+    - all sorting took place on disk (HDFS) without using Spark's in-memory cache (Spark is good even when data cannot fit into in-memory cache)
+    - sort rate and sort rate per node did not change significantly for Spark even after scaling data from I TB to 1 PB
+
+**Why Sorting**
+- what's so special about this task that makes is suitable for highlighting differing efficiencies between computing architectures?
+- **Sorting stresses "shuffle"**
+- No reduction in data 
+
+**What made this possible?**
+1) Next Gen Shuffle: **Sort Based Shuffle**
+    - netty native network transport
+    - external shuffle service 
+
+2) External Shuffle Service
+    - Requests from reducers to Maps
+
+3) Technique for serving map output files 
+    - was slow because it had to copy data 3 times 
+    - **Netty Native Transport**
+    - zero-copy
+    - a map sie optimization to serve data very quickly to requesting reducers 
+
+4) Shuffle Techniques
+    - **Old: Hash based shuffle**
+        - ran well below 10,000 reducers
+            - meaning that outcome RDD from shuffle operations has 10K reducers
+        - Map phase entirely bounded by I/O reads from HDFS and writing out locally sorted files
+        - Reducer requests are network bound, must pull data into different JVM's 
+    - **New: Sort Based Shuffle**
+        - on map side, blocks are read into JVM and incrementally written after sorting to a file
+        - Afterwards, merge-sort to combine the output map files
+        - Reducer procress mostly unaffected
+        - Reducer: TImSort, then write files out to HDFS blocks
+
+
